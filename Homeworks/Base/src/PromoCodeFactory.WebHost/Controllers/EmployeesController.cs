@@ -9,9 +9,6 @@ using PromoCodeFactory.WebHost.Models;
 
 namespace PromoCodeFactory.WebHost.Controllers
 {
-    /// <summary>
-    /// Сотрудники
-    /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
     public class EmployeesController : ControllerBase
@@ -23,10 +20,6 @@ namespace PromoCodeFactory.WebHost.Controllers
             _employeeRepository = employeeRepository;
         }
 
-        /// <summary>
-        /// Получить данные всех сотрудников
-        /// </summary>
-        /// <returns></returns>
         [HttpGet]
         public async Task<List<EmployeeShortResponse>> GetEmployeesAsync()
         {
@@ -43,10 +36,6 @@ namespace PromoCodeFactory.WebHost.Controllers
             return employeesModelList;
         }
 
-        /// <summary>
-        /// Получить данные сотрудника по Id
-        /// </summary>
-        /// <returns></returns>
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<EmployeeResponse>> GetEmployeeByIdAsync(Guid id)
         {
@@ -69,6 +58,75 @@ namespace PromoCodeFactory.WebHost.Controllers
             };
 
             return employeeModel;
+        }
+        
+        [HttpGet("short/{id:guid}", Name = "GetEmployeeShort")]
+        [ProducesResponseType(typeof(EmployeeShortResponse), 200)]
+        [ProducesResponseType(404)]
+        public async Task<ActionResult<EmployeeShortResponse>> GetShortEmployeeByIdAsync(Guid id)
+        {
+            var employee = await _employeeRepository.GetByIdAsync(id);
+
+            if (employee == null)
+                return NotFound();
+
+            var employeeModel = new EmployeeShortResponse()
+            {
+                Id = employee.Id,
+                Email = employee.Email,
+                FullName = employee.FullName,
+            };
+
+            return Ok(employeeModel);
+        }
+        
+        [HttpPost]
+        public async Task<ActionResult> CreateEmployeeAsync(CreateEmployeeRequest employeeRequest)
+        {
+            var employee = new Employee()
+            {
+                Id = Guid.NewGuid(),
+                Email = employeeRequest.Email,
+                Roles = new List<Role>(),
+                FirstName = employeeRequest.FirstName,
+                LastName = employeeRequest.LastName,
+                AppliedPromocodesCount = employeeRequest.AppliedPromocodesCount
+            };
+            var createdEmployee = await _employeeRepository.CreateAsync(employee);
+            if (createdEmployee == null) return Problem("Не удалось создать сотрудника");
+            var employeeShortResponse = new EmployeeShortResponse()
+            {
+                Id = createdEmployee.Id,
+                Email = createdEmployee.Email,
+                FullName = createdEmployee.FullName,
+            };
+
+            return CreatedAtRoute("GetEmployeeShort", new { id = createdEmployee.Id }, employeeShortResponse);
+        }
+
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> Update(Guid id, UpdateEmployeeRequest request)
+        {
+            var employeeExist = await _employeeRepository.GetByIdAsync(id);
+
+            if (employeeExist == null)
+                return NotFound();
+
+            employeeExist.Email = request.Email;
+            employeeExist.FirstName = request.FirstName;
+            employeeExist.LastName = request.LastName;
+            employeeExist.AppliedPromocodesCount = request.AppliedPromocodesCount;
+
+            _employeeRepository.Update(employeeExist);
+            return Ok(id);
+        }
+
+        [HttpDelete("{id:guid}")]
+        public IActionResult Delete(Guid id)
+        {
+            _employeeRepository.Delete(id);
+            return NoContent();
+
         }
     }
 }
