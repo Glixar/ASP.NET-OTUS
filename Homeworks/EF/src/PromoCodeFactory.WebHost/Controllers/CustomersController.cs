@@ -36,15 +36,16 @@ namespace PromoCodeFactory.WebHost.Controllers
         {
             var customers = await customerRepository.GetAllAsync();
 
-            var result = customers.Select(c => new CustomerShortResponse
+            var customerModelList = customers.Select(c => new CustomerShortResponse
             {
                 Id = c.Id,
                 FirstName = c.FirstName,
                 LastName = c.LastName,
-                Email = c.Email
+                Email = c.Email,
+                Nickname = c.Nickname
             }).ToList();
 
-            return result;
+            return customerModelList;
         }
 
         /// <summary>Возвращает клиента по идентификатору вместе с его промокодами.</summary>
@@ -52,18 +53,19 @@ namespace PromoCodeFactory.WebHost.Controllers
         public async Task<ActionResult<CustomerResponse>> GetCustomerAsync(Guid id)
         {
             var customer = await customerRepository.GetByIdAsync(id);
-            if (customer == null) return NotFound();
+            if (customer == null)
+                return NotFound();
 
-            var allPromocodes = await promocodesRepository.GetAllAsync();
-            var customerCodes = allPromocodes.Where(p => p.CustomerId == id).ToList();
+            var promoCodes = customer.PromoCodes;
 
-            var dto = new CustomerResponse
+            var customerModel = new CustomerResponse
             {
                 Id = customer.Id,
                 FirstName = customer.FirstName,
                 LastName = customer.LastName,
                 Email = customer.Email,
-                PromoCodes = customerCodes.Select(p => new PromoCodeShortResponse
+                Nickname = customer.Nickname,
+                PromoCodes = promoCodes?.Select(p => new PromoCodeShortResponse
                 {
                     Id = p.Id,
                     Code = p.Code,
@@ -74,32 +76,31 @@ namespace PromoCodeFactory.WebHost.Controllers
                 }).ToList()
             };
 
-            return Ok(dto);
+            return Ok(customerModel);
         }
 
         /// <summary>Создаёт нового клиента и назначает предпочтения.</summary>
         [HttpPost]
         public async Task<IActionResult> CreateCustomerAsync(CreateOrEditCustomerRequest request)
         {
-            var prefIds = (request.PreferenceIds ?? Enumerable.Empty<Guid>()).Distinct().ToList();
+            var preferences = await preferenceRepository.GetRangeByIdsAsync(request.PreferenceIds);
 
             var customer = new Customer
             {
-                Id = Guid.NewGuid(),
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 Email = request.Email,
-                Preferences = prefIds.Select(pid => new CustomerPreference
-                {
-                    CustomerId = Guid.Empty,
-                    PreferenceId = pid
-                }).ToList()
+                Nickname = request.Nickname
             };
 
-            foreach (var cp in customer.Preferences)
-                cp.CustomerId = customer.Id;
+            customer.Preferences = preferences.Select(p => new CustomerPreference
+            {
+                Customer = customer,
+                Preference = p
+            }).ToList();
 
             await customerRepository.AddAsync(customer);
+
             return CreatedAtRoute("GetCustomerById", new { id = customer.Id }, null);
         }
 
@@ -107,21 +108,24 @@ namespace PromoCodeFactory.WebHost.Controllers
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> EditCustomersAsync(Guid id, CreateOrEditCustomerRequest request)
         {
-            var existing = await customerRepository.GetByIdAsync(id);
-            if (existing == null) return NotFound();
+            var customer = await customerRepository.GetByIdAsync(id);
+            if (customer == null)
+                return NotFound();
 
-            existing.FirstName = request.FirstName;
-            existing.LastName = request.LastName;
-            existing.Email = request.Email;
+            var preferences = await preferenceRepository.GetRangeByIdsAsync(request.PreferenceIds);
 
-            var prefIds = (request.PreferenceIds ?? Enumerable.Empty<Guid>()).Distinct().ToList();
-            existing.Preferences = prefIds.Select(pid => new CustomerPreference
+            customer.FirstName = request.FirstName;
+            customer.LastName = request.LastName;
+            customer.Email = request.Email;
+            customer.Nickname = request.Nickname;
+
+            customer.Preferences = preferences.Select(p => new CustomerPreference
             {
-                CustomerId = id,
-                PreferenceId = pid
+                Customer = customer,
+                Preference = p
             }).ToList();
 
-            await customerRepository.UpdateAsync(existing);
+            await customerRepository.UpdateAsync(customer);
             return NoContent();
         }
 
@@ -130,12 +134,12 @@ namespace PromoCodeFactory.WebHost.Controllers
         public async Task<IActionResult> DeleteCustomer(Guid id)
         {
             var customer = await customerRepository.GetByIdAsync(id);
-            if (customer == null) return NotFound();
+            if (customer == null)
+                return NotFound();
 
-            var allPromocodes = await promocodesRepository.GetAllAsync();
-            var toDelete = allPromocodes.Where(p => p.CustomerId == id).Select(p => p.Id).ToList();
-            if (toDelete.Count > 0)
-                await promocodesRepository.DeleteRangeAsync(toDelete);
+            var promocodes = customer.PromoCodes;
+            if (promocodes != null && promocodes.Any())
+                await promocodesRepository.DeleteRangeAsync(promocodes.Select(p => p.Id));
 
             await customerRepository.DeleteAsync(id);
             return NoContent();
