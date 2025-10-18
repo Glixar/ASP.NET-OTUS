@@ -1,8 +1,14 @@
-﻿namespace PromoCodeFactory.Core.Domain.PromoCodeManagement
+﻿using System.Collections.Generic;
+
+namespace PromoCodeFactory.Core.Domain.PromoCodeManagement
 {
     public class Preference
-        : BaseEntity
+        :BaseEntity
     {
         public string Name { get; set; }
+
+        public virtual ICollection<PromoCode> PromoCodes { get; set; }
+
+        public virtual ICollection<CustomerPreference> Customers { get; set; }
     }
 }
