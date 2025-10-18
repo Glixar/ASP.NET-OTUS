@@ -1,13 +1,20 @@
-﻿namespace PromoCodeFactory.WebHost.Models
+﻿using System;
+using System.ComponentModel.DataAnnotations;
+
+namespace PromoCodeFactory.WebHost.Models
 {
     public class GivePromoCodeRequest
     {
-        public string ServiceInfo { get; set; }
+        [Required]
+        public Guid PreferenceId { get; set; }
 
-        public string PartnerName { get; set; }
+        [Required, MaxLength(256)]
+        public string ServiceInfo { get; set; } = default!;
 
-        public string PromoCode { get; set; }
+        [Required, MaxLength(128)]
+        public string PartnerName { get; set; } = default!;
 
-        public string Preference { get; set; }
+        [Required, MaxLength(64)]
+        public string PromoCode { get; set; } = default!;
     }
 }
