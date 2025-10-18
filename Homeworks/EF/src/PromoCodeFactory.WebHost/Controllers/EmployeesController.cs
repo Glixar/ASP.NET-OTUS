@@ -14,8 +14,7 @@ namespace PromoCodeFactory.WebHost.Controllers
     /// </summary>
     [ApiController]
     [Route("api/v1/[controller]")]
-    public class EmployeesController
-        : ControllerBase
+    public class EmployeesController : ControllerBase
     {
         private readonly IRepository<Employee> _employeeRepository;
 
@@ -27,19 +26,17 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Получить данные всех сотрудников
         /// </summary>
-        /// <returns></returns>
         [HttpGet]
         public async Task<List<EmployeeShortResponse>> GetEmployeesAsync()
         {
             var employees = await _employeeRepository.GetAllAsync();
 
-            var employeesModelList = employees.Select(x =>
-                new EmployeeShortResponse()
-                {
-                    Id = x.Id,
-                    Email = x.Email,
-                    FullName = x.FullName,
-                }).ToList();
+            var employeesModelList = employees.Select(x => new EmployeeShortResponse
+            {
+                Id = x.Id,
+                Email = x.Email,
+                FullName = x.FullName
+            }).ToList();
 
             return employeesModelList;
         }
@@ -47,7 +44,6 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Получить данные сотрудника по id
         /// </summary>
-        /// <returns></returns>
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<EmployeeResponse>> GetEmployeeByIdAsync(Guid id)
         {
@@ -56,20 +52,22 @@ namespace PromoCodeFactory.WebHost.Controllers
             if (employee == null)
                 return NotFound();
 
-            var employeeModel = new EmployeeResponse()
+            var employeeModel = new EmployeeResponse
             {
                 Id = employee.Id,
                 Email = employee.Email,
-                Role = new RoleItemResponse()
-                {
-                    Name = employee.Role.Name,
-                    Description = employee.Role.Description
-                },
+                Role = employee.Role == null
+                    ? null
+                    : new RoleItemResponse
+                    {
+                        Name = employee.Role.Name,
+                        Description = employee.Role.Description
+                    },
                 FullName = employee.FullName,
                 AppliedPromocodesCount = employee.AppliedPromocodesCount
             };
 
-            return employeeModel;
+            return Ok(employeeModel);
         }
     }
 }
